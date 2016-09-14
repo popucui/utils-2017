@@ -46,8 +46,8 @@ browser = webdriver.Firefox()
 browser.get('http://192.168.0.16:8088/genius/login/auth')
 username = browser.find_element_by_name("j_username")
 password = browser.find_element_by_name("j_password")
-username.send_keys("qind")
-password.send_keys("qind123456")
+username.send_keys("user")
+password.send_keys("passwd")
 browser.find_element_by_id("field-submit").click()
 
 #select a patient
