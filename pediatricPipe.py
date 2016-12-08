@@ -39,9 +39,7 @@ bindir = '{0}/bin/'.format(os.path.dirname(args.i) )
 #QC
 qcsh='''{bin}Filter filter -1 {fq1} -2 {fq2} -Q {baseQual} -o {root}/QC -C {samplename}_clean_1.fq.gz  -D {samplename}_clean_2.fq.gz -G -5 1
 gunzip -c {root}/QC/{samplename}_clean_1.fq.gz | {bin}/cutadapt -a {adpt3}  -O 5 -o {root}/QC/{samplename}_clean_cutadapt_1.fq - >{root}/QC/{samplename}.R1.fastq.cutadaptor.log
-
 gunzip -c {root}/QC/{samplename}_clean_2.fq.gz | {bin}/cutadapt -a {adpt5}  -O 5 -o {root}/QC/{samplename}_clean_cutadapt_2.fq - >{root}/QC/{samplename}.R2.fastq.cutadaptor.log
-
 perl {bin}/filt_read_len.pl {root}/QC/{samplename}_clean_cutadapt_1.fq {root}/QC/{samplename}_clean_cutadapt_2.fq {root}/QC/{samplename}_clean_cutadapt_filt 50
 '''.format(bin=bindir, fq1=args.fq1, fq2=args.fq2, baseQual=args.q,
     root=rootdir, samplename=args.n, adpt3=args.adpt3, adpt5=args.adpt5)
@@ -51,10 +49,10 @@ open('{0}/shell/QC.sh'.format(rootdir),'w' ).write(qcsh)
 
 
 #alignment
-alignsh='''{bwa}  mem  -t {bwaNT} {ref} {root}/QC/{samplename}_clean_cutadapt_filt_1.fq {root}/QC/{samplename}_clean_cutadapt_filt_2.fq | {samtools} view  -b -S -F 0x100 -T  {ref} - > {root}/align/{samplename}.bam
-{samtools} view  -h  {root}/align/{samplename}.bam | awk '{{if($1~/@/){{print}}else{{if(!($6~/H/ && $5>25 )){{print $0}}}}}}' |{samtools} view -b -S -T  {ref} - {root}/align/{samplename}.bf.bam
+alignsh='''{bwa}  mem  -t {bwaNT} {ref} {root}/QC/{samplename}_clean_cutadapt_filt_1.fq {root}/QC/{samplename}_clean_cutadapt_filt_2.fq | {samtools} view  -b  -F 0x100 -T  {ref} - > {root}/align/{samplename}.bam
+{samtools} view  -h  {root}/align/{samplename}.bam | awk '{{if($1~/@/){{print}}else{{if(!($6~/H/ && $5>25 )){{print $0}}}}}}' |{samtools} view -b  -T  {ref} - -o {root}/align/{samplename}.bf.bam
 java -Xmx3g -XX:MaxPermSize=512m -XX:-UseGCOverheadLimit -jar {picard} FixMateInformation I={root}/align/{samplename}.bf.bam  O={root}/align/{samplename}.bftmp.bam TMP_DIR={root}/align/tmp SO=coordinate VALIDATION_STRINGENCY=SILENT
-mv {root}/align/{samplename}.bftmp.bam {root}/align/{samplename}.bf.bam
+mv -f {root}/align/{samplename}.bftmp.bam {root}/align/{samplename}.bf.bam
 java -Xmx3g -XX:MaxPermSize=512m -XX:-UseGCOverheadLimit -jar {picard}  AddOrReplaceReadGroups I={root}/align/{samplename}.bf.bam  O={root}/align/{samplename}.add.bam ID={samplename} LB={samplename} SM={samplename}  PL=illumina PU={samplename} CN=gene TMP_DIR={root}/align/tmp  SO=coordinate VALIDATION_STRINGENCY=SILENT
 {samtools} calmd -b  {root}/align/{samplename}.add.bam {ref} >{root}/align/{samplename}.sort.tmp.bam
 {samtools} index {root}/align/{samplename}.sort.tmp.bam
@@ -130,28 +128,28 @@ rm {root}/Variant/{samplename}.pileup
 open('{0}/shell/Clean.sh'.format(rootdir),'w' ).write(cleansh)
 
 #run ALL step
-allstepsh='''echo -e Start Filter FQ at  `date +%y-%m-%d.%H:%M:%S` "\n"
+allstepsh='''echo -e Start Filter FQ at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 sh {root}/shell/QC.sh >{root}/shell/QC.sh.log 2>&1
-echo -e Finish Filter FQ at `date +%y-%m-%d.%H:%M:%S` "\n"
+echo -e Finish Filter FQ at `date +%y-%m-%d.%H:%M:%S` "\\n"
 
-echo -e Start Align  at  `date +%y-%m-%d.%H:%M:%S` "\n"
+echo -e Start Align  at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 sh {root}/shell/align.sh >{root}/shell/align.sh.log 2>&1
-echo -e Finish Align  at  `date +%y-%m-%d.%H:%M:%S` "\n"
-echo -e Start Call Variant  at  `date +%y-%m-%d.%H:%M:%S` "\n"
+echo -e Finish Align  at  `date +%y-%m-%d.%H:%M:%S` "\\n"
+echo -e Start Call Variant  at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 sh {root}/shell/Variant.sh >{root}/shell/Variant.sh.log 2>&1
-echo -e Finish Call Variant  at  `date +%y-%m-%d.%H:%M:%S` "\n"
+echo -e Finish Call Variant  at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 
-echo -e Star talant at  `date +%y-%m-%d.%H:%M:%S` "\n"
+echo -e Star talant at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 sh  {root}/shell/talant.sh >{root}/shell/talant.sh.log 2>&1 
-echo -e Finish talant at  `date +%y-%m-%d.%H:%M:%S` "\n"
+echo -e Finish talant at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 
-echo -e Star report at  `date +%y-%m-%d.%H:%M:%S` "\n"
+echo -e Star report at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 sh  {root}/shell/report.sh >{root}/shell/report.sh.log 2>&1 
-echo -e Finish  report at  `date +%y-%m-%d.%H:%M:%S` "\n"
+echo -e Finish  report at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 
-# echo -e Star Clean data  at  `date +%y-%m-%d.%H:%M:%S` "\n"
+# echo -e Star Clean data  at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 # sh {root}/shell/Clean.sh >{root}/shell/Clean.sh.log 2>&1 
-# echo -e Finish Clean data  at  `date +%y-%m-%d.%H:%M:%S` "\n"
+# echo -e Finish Clean data  at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 '''.format(root=rootdir)
 open('{0}/shell/All_step.sh'.format(rootdir),'w' ).write(allstepsh)
 
