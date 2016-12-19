@@ -38,14 +38,12 @@ bindir = '{0}/bin/'.format(os.path.dirname(args.i) )
 
 #QC
 qcsh='''{bin}Filter filter -1 {fq1} -2 {fq2} -Q {baseQual} -o {root}/QC -C {samplename}_clean_1.fq.gz  -D {samplename}_clean_2.fq.gz -G -5 1
-gunzip -c {root}/QC/{samplename}_clean_1.fq.gz | {bin}/cutadapt -a {adpt3}  -O 5 -o {root}/QC/{samplename}_clean_cutadapt_1.fq - >{root}/QC/{samplename}.R1.fastq.cutadaptor.log
-gunzip -c {root}/QC/{samplename}_clean_2.fq.gz | {bin}/cutadapt -a {adpt5}  -O 5 -o {root}/QC/{samplename}_clean_cutadapt_2.fq - >{root}/QC/{samplename}.R2.fastq.cutadaptor.log
+gunzip -c {root}/QC/{samplename}_clean_1.fq.gz | {bin}/cutadapt -a {adpt3}  -O 5 -o {root}/QC/{samplename}_clean_cutadapt_1.fq  - >{root}/QC/{samplename}.R1.fastq.cutadaptor.log
+gunzip -c {root}/QC/{samplename}_clean_2.fq.gz | {bin}/cutadapt -a {adpt5}  -O 5 -o {root}/QC/{samplename}_clean_cutadapt_2.fq  - >{root}/QC/{samplename}.R2.fastq.cutadaptor.log
 perl {bin}/filt_read_len.pl {root}/QC/{samplename}_clean_cutadapt_1.fq {root}/QC/{samplename}_clean_cutadapt_2.fq {root}/QC/{samplename}_clean_cutadapt_filt 50
 '''.format(bin=bindir, fq1=args.fq1, fq2=args.fq2, baseQual=args.q,
     root=rootdir, samplename=args.n, adpt3=args.adpt3, adpt5=args.adpt5)
 open('{0}/shell/QC.sh'.format(rootdir),'w' ).write(qcsh)
-#print(config.get('software', 'bwa') )
-#print(rootdir)
 
 
 #alignment
@@ -71,8 +69,8 @@ open('{0}/shell/align.sh'.format(rootdir),'w' ).write(alignsh)
 
 #call variant
 variantsh='''awk 'NR>1'   {insert_bed} > {root}/Variant/insert.bed
-java -Xmx4g -jar  -jar {gatk}  -T  UnifiedGenotyper -dcov 1000000 -nt {gatkNT} -minIndelFrac 0.15 -glm BOTH -l INFO -R  {ref} -I {root}/align/{samplename}.sort.bam -o {root}/Variant/{samplename}.vcf -L {root}/Variant/insert.bed
-java -Xmx4g -jar  -jar {gatk}  -T VariantFiltration -R {ref} -o {root}/Variant/{samplename}.filt.vcf --variant {root}/Variant/{samplename}.vcf --filterExpression "MQ0 >= 4 && ((MQ0 / (1.0 * DP)) > 0.1) " --filterName "HARD_TO_VALIDATE"  --filterExpression "DP < 10 || QD < 2" --filterName "LOW_READ_SUPPORT" 
+java -Xmx4g   -jar {gatk}  -T  UnifiedGenotyper -dcov 1000000 -nt {gatkNT} -minIndelFrac 0.15 -glm BOTH -l INFO -R  {ref} -I {root}/align/{samplename}.sort.bam -o {root}/Variant/{samplename}.vcf -L {root}/Variant/insert.bed
+java -Xmx4g   -jar {gatk}  -T VariantFiltration -R {ref} -o {root}/Variant/{samplename}.filt.vcf --variant {root}/Variant/{samplename}.vcf --filterExpression "MQ0 >= 4 && ((MQ0 / (1.0 * DP)) > 0.1) " --filterName "HARD_TO_VALIDATE"  --filterExpression "DP < 10 || QD < 2" --filterName "LOW_READ_SUPPORT" 
 awk '{{if(NR>1){{print $1"\\t"$2-1"\\t"$3}}}}' {insert_bed} >{root}/Variant/insert2_bed
 {samtools}  mpileup  -A -d 10000000 -q 10 -f {ref} -l {root}/Variant/insert2_bed {root}/align/{samplename}.sort.bam  > {root}/Variant/{samplename}.pileup
 {bin}/pileup_analyse {root}/Variant/{samplename}.pileup {root}/Variant/{samplename}.pileup.out
@@ -114,6 +112,7 @@ cp {root}/talant/{samplename}*png {root}/report/picture
 perl {bin}/data_stat.pl {root}/align/{samplename}.primer_reads_Depth_Coverage.stat {root}/align/{samplename}.primer_aveage_depth.stat {samplename} >{root}/report/target_data_stat.txt
 cp {root}/Variant/{samplename}.filt.vcf {root}/report/{samplename}.vcf
 {bin}/report/talant_report  -o {root}/report -p {samplename} -g  {root}/talant/{samplename}.grow.genetype.xls -d {root}/talant/{samplename}.drug.genetype.xls -l {sampleinfo}
+sed -i -re 's/genolives/新基因格/g'  {root}/report/{samplename}.report.html
 cp {root}/align/{samplename}.primer_bed_Depth_Coverage.stat.xls  {root}/report
 cp {root}/Variant/{samplename}.filt.vcf {root}/report/{samplename}.vcf
 sh {bin}/report/html2pdf.sh {root}/report/{samplename}.report.html {root}/report/{samplename}.report.pdf
