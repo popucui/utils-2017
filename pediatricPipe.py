@@ -1,25 +1,31 @@
 #!/usr/bin/env python
 #coding=utf-8
 
-VERSION='0.1.0'
-
+VERSION='0.1.1'
+'''
+change log:
+	2017-02-21: delete '-L' in GATK UnifiedGenotyper and '-l' in SamTools mpileup, detect all variant in whole genome;
+				extract genotype info for TianFu report system
+    2017-03-15: make grow_nutrition.json file for GROW and NUTRITION report template(can find it at root/report/{samplename}.grow_nutrition.json)
+'''
 import os,sys
 import argparse,ConfigParser
 
 parser = argparse.ArgumentParser(description='pipeline for Talent gene V2')
 
-parser.add_argument('-i', help='config file, which store software & database used through whole pipeline')
-parser.add_argument('-o', help='output root dir')
+parser.add_argument('-i', help='config file, which store software & database used through whole pipeline', 
+	default='/home/reboot/share/pediatricPanel/config.V2.txt')
+parser.add_argument('-o', help='output root dir, suggest to use sample barcode')
 parser.add_argument('-fq1', help='left read file')
 parser.add_argument('-fq2', help='right read file')
-parser.add_argument('-n', help='sample name')
+parser.add_argument('-n', help='sample name, AKA sample barcode')
 parser.add_argument('-q', help='base quality type. 1: phred64, 2: phred33', default=2, type=int, choices=[1,2])
 parser.add_argument('-l', help='sample info file, which hold gender, name, report date etc.')
 parser.add_argument('-adpt3', help="3' adapter seq default:TGGAATTCTCGGGTGCCA ", type=str, default='TGGAATTCTCGGGTGCCA')
 parser.add_argument('-adpt5', help="5' adapter seq default:AGATCGGAAGAGCGTCGT ", type=str, default='AGATCGGAAGAGCGTCGT')
 parser.add_argument('-bwaNT',help='number of thread for bwa alignment', default=2, type=int)
 parser.add_argument('-gatkNT',help='number of thread for GATK realign', default=1, type=int)
-parser.add_argument('-run', help='whether go through all steps at once, default: n(o)', default='n', type=str)
+parser.add_argument('-run', help='whether go through all steps at once, default: n(o)', default='n', type=str, choices=['y','n'])
 args = parser.parse_args()
 
 if not os.path.exists(args.i):
@@ -69,10 +75,10 @@ open('{0}/shell/align.sh'.format(rootdir),'w' ).write(alignsh)
 
 #call variant
 variantsh='''awk 'NR>1'   {insert_bed} > {root}/Variant/insert.bed
-java -Xmx4g   -jar {gatk}  -T  UnifiedGenotyper -dcov 1000000 -nt {gatkNT} -minIndelFrac 0.15 -glm BOTH -l INFO -R  {ref} -I {root}/align/{samplename}.sort.bam -o {root}/Variant/{samplename}.vcf -L {root}/Variant/insert.bed
+java -Xmx4g   -jar {gatk}  -T  UnifiedGenotyper -dcov 1000000 -nt {gatkNT} -minIndelFrac 0.15 -glm BOTH -l INFO -R  {ref} -I {root}/align/{samplename}.sort.bam -o {root}/Variant/{samplename}.vcf 
 java -Xmx4g   -jar {gatk}  -T VariantFiltration -R {ref} -o {root}/Variant/{samplename}.filt.vcf --variant {root}/Variant/{samplename}.vcf --filterExpression "MQ0 >= 4 && ((MQ0 / (1.0 * DP)) > 0.1) " --filterName "HARD_TO_VALIDATE"  --filterExpression "DP < 10 || QD < 2" --filterName "LOW_READ_SUPPORT" 
 awk '{{if(NR>1){{print $1"\\t"$2-1"\\t"$3}}}}' {insert_bed} >{root}/Variant/insert2_bed
-{samtools}  mpileup  -A -d 10000000 -q 10 -f {ref} -l {root}/Variant/insert2_bed {root}/align/{samplename}.sort.bam  > {root}/Variant/{samplename}.pileup
+{samtools}  mpileup  -A -d 10000000 -q 10 -f {ref}  {root}/align/{samplename}.sort.bam  > {root}/Variant/{samplename}.pileup
 {bin}/pileup_analyse {root}/Variant/{samplename}.pileup {root}/Variant/{samplename}.pileup.out
 '''.format(insert_bed=config.get('database', 'insert_bed'), root=rootdir, 
     gatkNT=args.gatkNT, gatk=config.get('software', 'GATK'), bin=bindir,
@@ -116,13 +122,18 @@ sed -i -re 's/genolives/新基因格/g'  {root}/report/{samplename}.report.html
 cp {root}/align/{samplename}.primer_bed_Depth_Coverage.stat.xls  {root}/report
 cp {root}/Variant/{samplename}.filt.vcf {root}/report/{samplename}.vcf
 sh {bin}/report/html2pdf.sh {root}/report/{samplename}.report.html {root}/report/{samplename}.report.pdf
-'''.format(bin=bindir, root=rootdir, samplename=args.n, sampleinfo=args.l)
+#extract genotype from vcf output of  GATK and mpileup of SamTools, submit to Tianfu report system
+python3 {bin}/../report_doc/get_tf_genotype.py -v {root}/Variant/{samplename}.vcf  -p {root}/Variant/{samplename}.pileup -i {patientId}
+
+/home/reboot/software/envs/p3k/bin/python {bin}/../report_doc/make_growjson.py get-growres --grow-gtpe {root}/talant/{samplename}.grow.genetype.xls \
+--growjson-file {bin}/../report_doc/config/grow_3rd.json --gtest-result {root}/report/{samplename}.grow_nutrition.json
+'''.format(bin=bindir, root=rootdir, samplename=args.n, sampleinfo=args.l, patientId=args.n )
 open('{0}/shell/report.sh'.format(rootdir),'w' ).write(reportsh)
 
 #Clean up
 cleansh='''rm {root}/QC/{samplename}_clean_cutadapt_filt_1.fq {root}/QC/{samplename}_clean_cutadapt_filt_2.fq {root}/QC/{samplename}_clean_1.fq.gz {root}/QC/{samplename}_clean_2.fq.gz {root}/QC/{samplename}_clean_cutadapt_1.fq {root}/QC/{samplename}_clean_cutadapt_2.fq
-rm {root}/align/*bam
-rm {root}/Variant/{samplename}.pileup
+rm {root}/align/{samplename}.bam {root}/align/{samplename}.add.bam  {root}/align/{samplename}.bf.bam
+#rm {root}/Variant/{samplename}.pileup
 '''.format(root=rootdir, samplename=args.n)
 open('{0}/shell/Clean.sh'.format(rootdir),'w' ).write(cleansh)
 
@@ -146,9 +157,9 @@ echo -e Star report at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 sh  {root}/shell/report.sh >{root}/shell/report.sh.log 2>&1 
 echo -e Finish  report at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 
-# echo -e Star Clean data  at  `date +%y-%m-%d.%H:%M:%S` "\\n"
-# sh {root}/shell/Clean.sh >{root}/shell/Clean.sh.log 2>&1 
-# echo -e Finish Clean data  at  `date +%y-%m-%d.%H:%M:%S` "\\n"
+echo -e Star Clean data  at  `date +%y-%m-%d.%H:%M:%S` "\\n"
+sh {root}/shell/Clean.sh >{root}/shell/Clean.sh.log 2>&1 
+echo -e Finish Clean data  at  `date +%y-%m-%d.%H:%M:%S` "\\n"
 '''.format(root=rootdir)
 open('{0}/shell/All_step.sh'.format(rootdir),'w' ).write(allstepsh)
 
