@@ -45,9 +45,9 @@ def makeResultSample(gtype_B, timeStamp):
             resultDataLine = '{bcode}\t抗肿瘤基因检测\t\t{Stamp}\n{bcode}\t肥胖基因检测\t\t{Stamp}\n{bcode}\t衰老基因检测\t\t{Stamp}\n'.format(Stamp=submt_stamp, bcode=barcode)
             
             resultDataLst.append(resultDataLine)
-    with open('{gtype_B}_sampleData.txt'.format(gtype_B=gtype_B.rstrip('.txt')), 'w') as f:
+    with open('{gtype_B}_sampleData.txt'.format(gtype_B=gtype_B.rstrip('.txt')), 'w', encoding='utf-16') as f:
         f.writelines(sampleDataLst)
-    with open('{gtype_B}_resultData.txt'.format(gtype_B=gtype_B.rstrip('.txt')), 'w') as f:
+    with open('{gtype_B}_resultData.txt'.format(gtype_B=gtype_B.rstrip('.txt')), 'w', encoding='utf-16') as f:
         f.writelines(resultDataLst)
  
 if __name__ == '__main__':

@@ -1,4 +1,4 @@
-#!/usr/bin env python
+#!/usr/bin env python3
 #coding=utf-8
 '''
 generate sampleData and resultData for report, using python
@@ -6,11 +6,11 @@ generate sampleData and resultData for report, using python
 import sys,re, io
 
 rawres = sys.argv[1]
-samplefh = open(sys.argv[2], 'w')
-resultfh = open(sys.argv[3], 'w')
+samplefh = open('{rawres}_sampleData.txt'.format(rawres=rawres.rstrip('.txt') ), 'w', encoding='utf-16')
+resultfh = open('{rawres}_resultData.txt'.format(rawres=rawres.rstrip('.txt') ), 'w', encoding='utf-16')
 samplefh.write('snp位点\t基因\t批次\t所属样本\t基因型\t检测结果\n')
 resultfh.write('样本编号\t所属项目(动态项目名称必须正确)\t检测结果\t实验批次\n')
-datecode = sys.argv[4]
+datecode = sys.argv[2]
 
 taocanSampleDat = {
     'A': {'rs1042522': 'TP53'},
@@ -52,14 +52,13 @@ with open(rawres) as f:
         temp = line.rstrip().split()
         barcode = temp[3]
         taocanType = temp[4]
-#         assert taocanType in taocanSampleDat
-#        assert taocanType in taocanResultDat
-#         if taocanType == '抗肿瘤基因检测':
+
+
         if taocanType == 'A':
             genetype = list(temp[6])
             sampleline = 'rs1042522\tTP53\t{0}\t{1}\t"{2}"\t{3}\n'.format(datecode, barcode, ','.join(genetype), gene2pheno['rs1042522'][temp[6] ] )
             resultline = '{0}\t抗肿瘤基因检测\t\t{1}\n'.format(barcode, datecode)
-        #elif ...
+
         elif taocanType == 'B':
             genetype = re.findall(r'[ATGC]{2}',line)
             sampleline=''
