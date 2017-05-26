@@ -1,3 +1,5 @@
+--run this from cmd: sqlite3 NetAffxGenomicAnnotations.Homo_sapiens.hg19.na33.1.db < CreattbImport.sql 
+--no need to add .save newname.db, cause sqlite3 save for you automatically after quit
 --ALTER TABLE main.browse_dgv RENAME TO old_dgv;
 .headers off
 DROP TABLE browse_dgv;
